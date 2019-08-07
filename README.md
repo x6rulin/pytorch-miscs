@@ -1,2 +1,2 @@
 # pytorch-miscs
-Miscellaneous utils for network training in pytorch.
+Miscellaneous utils for network training and testing in pytorch.
