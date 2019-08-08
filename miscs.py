@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 
 def argparser():
-    """default argparse, please customize it by yourself. """
+    """default argparser, please customize it by yourself. """
     parser = argparse.ArgumentParser(description="base class for network training")
     parser.add_argument("-r", "--resume", type=str, default='', help="if specified starts from checkpoint")
     parser.add_argument("-t", "--transfer", type=str, default='', help="specify the path of weights for transfer learning")
@@ -43,7 +43,7 @@ class Trainer:
     def main(self):
         if self.args.resume:
             if os.path.isfile(self.args.resume):
-                print("loading chekpoint '{}' ...".format(self.args.resume))
+                print("loading checkpoint '{}' ...".format(self.args.resume))
                 checkpoint = torch.load(self.args.resume)
                 self.net.load_state_dict(checkpoint['state_dict'])
                 self.optimizer.load_state_dict(checkpoint['optimizer'])
@@ -51,7 +51,7 @@ class Trainer:
                 self.value = checkpoint['rate']
         elif self.args.transfer:
             if os.path.isfile(self.args.transfer):
-                print("tranfer learning from weights '{}' ...".format(self.args.transfer))
+                print("transfer learning from weights '{}' ...".format(self.args.transfer))
                 weights = torch.load(self.args.transfer)
                 self.transfer(weights)
 
