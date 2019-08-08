@@ -1,4 +1,4 @@
-"""frame and utils for network training process. """
+"""framework and utils for network training process. """
 import os
 import argparse
 import shutil
@@ -29,14 +29,15 @@ class Trainer:
         if not os.path.exists(self.args.chkpt_dir):
             os.mkdir(self.args.chkpt_dir)
 
-        self.train_loader = DataLoader(train_dataset, self.args.batch_size, shuffle=True, num_workers=self.args.ncpu, pin_memory=True)
-        self.val_loader = DataLoader(val_dataset, self.args.batch_size, shuffle=False, num_workers=self.args.ncpu, pin_memory=True)
+        is_cuda = torch.cuda.is_available()
+        self.train_loader = DataLoader(train_dataset, self.args.batch_size, shuffle=True, num_workers=self.args.ncpu, pin_memory=is_cuda)
+        self.val_loader = DataLoader(val_dataset, self.args.batch_size, shuffle=False, num_workers=self.args.ncpu, pin_memory=is_cuda)
 
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(["cpu", "cuda:0"][is_cuda])
         self.net = model().to(self.device)
         self.optimizer = torch.optim.Optimizer(self.net.parameters(), defaults={})
         self.loss_fn = NotImplemented
-        self.rate = NotImplemented
+        self.value = NotImplemented
         self.epoch = 0
 
     def main(self):
@@ -47,36 +48,36 @@ class Trainer:
                 self.net.load_state_dict(checkpoint['state_dict'])
                 self.optimizer.load_state_dict(checkpoint['optimizer'])
                 self.epoch = checkpoint['epoch']
-                self.rate = checkpoint['rate']
+                self.value = checkpoint['rate']
         elif self.args.transfer:
             if os.path.isfile(self.args.transfer):
                 print("tranfer learning from weights '{}' ...".format(self.args.transfer))
                 weights = torch.load(self.args.transfer)
-                self._transfer(weights)
+                self.transfer(weights)
 
         while self.epoch < self.args.epochs:
             self.epoch += 1
-            self._train()
+            self.train()
 
             if self.epoch % self.args.evaluation_interval == 0:
-                rate = self._validate()
-                self._checkpoint({'state_dict': self.net.state_dict(),
+                rate = self.validate()
+                self.checkpoint({'state_dict': self.net.state_dict(),
                                   'optimizer': self.optimizer.state_dict(),
                                   'epoch': self.epoch,
                                   'rate': rate},
-                                 rate > self.rate)
-                self.rate = max(rate, self.rate)
+                                 rate > self.value)
+                self.value = max(rate, self.value)
 
-    def _transfer(self, weights):
+    def transfer(self, weights):
         raise NotImplementedError
 
-    def _train(self):
+    def train(self):
         raise NotImplementedError
 
-    def _validate(self):
+    def validate(self):
         raise NotImplementedError
 
-    def _checkpoint(self, state, is_best):
+    def checkpoint(self, state, is_best):
         save_pth = os.path.join(self.args.chkpt_dir, "current.pth.tar")
         torch.save(state, save_pth)
         if is_best:
