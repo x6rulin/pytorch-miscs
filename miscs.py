@@ -6,25 +6,27 @@ import torch
 from torch.utils.data import DataLoader
 
 
-def argparser():
+class ArgParse:
     """default argparser, please customize it by yourself. """
-    parser = argparse.ArgumentParser(description="base class for network training")
-    parser.add_argument("-r", "--resume", type=str, default='', help="if specified starts from checkpoint")
-    parser.add_argument("-t", "--transfer", type=str, default='', help="specify the path of weights for transfer learning")
-    parser.add_argument("-e", "--epochs", type=int, default=128, help="number of epochs")
-    parser.add_argument("-b", "--batch-size", type=int, default=64, help="mini-batch size")
-    parser.add_argument("-n", "--ncpu", type=int, default=8, help="number of cpu threads used during batch generation")
-    parser.add_argument("-l", "--lr", type=float, default=1e-3, help="learning rate for gradient descent")
-    parser.add_argument("-p", "--print-freq", type=int, default=10, help="print frequency")
-    parser.add_argument("-c", "--chkpt-dir", type=str, default="checkpoints/", help="directory saved checkpoints")
-    parser.add_argument("-i", "--evaluation-interval", type=int, default=1, help="interval between evaluations on validation set")
+    def __init__(self):
+        self.parser = argparse.ArgumentParser(description="base class for network training")
+        self.parser.add_argument("-r", "--resume", type=str, default='', help="if specified starts from checkpoint")
+        self.parser.add_argument("-t", "--transfer", type=str, default='', help="specify the path of weights for transfer learning")
+        self.parser.add_argument("-e", "--epochs", type=int, default=128, help="number of epochs")
+        self.parser.add_argument("-b", "--batch-size", type=int, default=64, help="mini-batch size")
+        self.parser.add_argument("-n", "--ncpu", type=int, default=8, help="number of cpu threads used during batch generation")
+        self.parser.add_argument("-l", "--lr", type=float, default=1e-3, help="learning rate for gradient descent")
+        self.parser.add_argument("-p", "--print-freq", type=int, default=10, help="print frequency")
+        self.parser.add_argument("-c", "--chkpt-dir", type=str, default="checkpoints/", help="directory saved checkpoints")
+        self.parser.add_argument("-i", "--evaluation-interval", type=int, default=1, help="interval between evaluations on validation set")
 
-    return parser.parse_args()
+    def __call__(self):
+        return self.parser.parse_args()
 
 
 class Trainer:
     """base class for network training, its instance variables and functions requires implemented while used. """
-    def __init__(self, train_dataset, val_dataset, model, args=argparser):
+    def __init__(self, train_dataset, val_dataset, model, args=ArgParse):
         self.args = args()
         if not os.path.exists(self.args.chkpt_dir):
             os.mkdir(self.args.chkpt_dir)
@@ -34,9 +36,9 @@ class Trainer:
         self.val_loader = DataLoader(val_dataset, self.args.batch_size, shuffle=False, num_workers=self.args.ncpu, pin_memory=is_cuda)
 
         self.device = torch.device(["cpu", "cuda:0"][is_cuda])
-        self.net = model().to(self.device)
+        self.net = model.to(self.device)
         self.optimizer = torch.optim.Optimizer(self.net.parameters(), defaults={})
-        self.loss_fn = NotImplemented
+        self.criterion = NotImplemented
         self.value = NotImplemented
         self.epoch = 0
 
@@ -60,13 +62,9 @@ class Trainer:
             self.train()
 
             if self.epoch % self.args.evaluation_interval == 0:
-                rate = self.validate()
-                self.checkpoint({'state_dict': self.net.state_dict(),
-                                  'optimizer': self.optimizer.state_dict(),
-                                  'epoch': self.epoch,
-                                  'rate': rate},
-                                 rate > self.value)
-                self.value = max(rate, self.value)
+                value = self.validate()
+                self.checkpoint(value)
+                self.value = max(value, self.value)
 
     def transfer(self, weights):
         raise NotImplementedError
@@ -77,8 +75,12 @@ class Trainer:
     def validate(self):
         raise NotImplementedError
 
-    def checkpoint(self, state, is_best):
+    def checkpoint(self, value):
+        state = {'state_dict': self.net.state_dict(),
+                 'optimizer': self.optimizer.state_dict(),
+                 'epoch': self.epoch,
+                 'value': value}
         save_pth = os.path.join(self.args.chkpt_dir, "current.pth.tar")
         torch.save(state, save_pth)
-        if is_best:
+        if value > self.value:
             shutil.copyfile(save_pth, os.path.join(self.args.chkpt_dir, "best.pth.tar"))
