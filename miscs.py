@@ -43,13 +43,13 @@ class Trainer:
         self.value = NotImplemented
         self.epoch = 0
 
-    def _setcell(self, cells):
+    def _appendcell(self, cells):
         """Set trainer cells for checkout. """
         self.__cell.extend(cells)
 
     def state_dict(self):
         """Return dictionary of states for instance varibales listed in self.__cell. """
-        return {k: self._get_state(v) for k, v in self.__dict__.items() if k in self.__cell}
+        return {k: self._get_state(self.__dict__[k]) for k in self.__cell}
 
     @staticmethod
     def _get_state(obj):
@@ -105,7 +105,7 @@ class Trainer:
     def checkpoint(self, value):
         """Save checkpoint for the training process. """
         if not os.path.exists(self.args.chkpt_dir):
-            os.mkdir(self.args.chkpt_dir)
+            os.makedirs(self.args.chkpt_dir, 0o775)
         save_pth = os.path.join(self.args.chkpt_dir, "current.pth.tar")
 
         torch.save(self.state_dict(), save_pth)
