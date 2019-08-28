@@ -8,8 +8,8 @@ from torch.utils.data import DataLoader
 
 class ArgParse:
     """Default argparser, please customize it by yourself. """
-    def __init__(self):
-        self.parser = argparse.ArgumentParser(description="network trainer")
+    def __init__(self, description="base class for network trainer, additional customizations required if necessary"):
+        self.parser = argparse.ArgumentParser(description=description)
         self.parser.add_argument("-r", "--resume", type=str, default='', help="if specified starts from checkpoint")
         self.parser.add_argument("-t", "--transfer", type=str, default='', help="specify the path of weights for transfer learning")
         self.parser.add_argument("-e", "--epochs", type=int, default=128, help="number of epochs")
