@@ -1,4 +1,4 @@
-"""framework and utils for network training process. """
+"""Framework and utils for network training process. """
 import os
 import argparse
 import shutil
@@ -7,9 +7,9 @@ from torch.utils.data import DataLoader
 
 
 class ArgParse:
-    """default argparser, please customize it by yourself. """
+    """Default argparser, please customize it by yourself. """
     def __init__(self):
-        self.parser = argparse.ArgumentParser(description="base class for network training")
+        self.parser = argparse.ArgumentParser(description="network trainer")
         self.parser.add_argument("-r", "--resume", type=str, default='', help="if specified starts from checkpoint")
         self.parser.add_argument("-t", "--transfer", type=str, default='', help="specify the path of weights for transfer learning")
         self.parser.add_argument("-e", "--epochs", type=int, default=128, help="number of epochs")
@@ -25,11 +25,12 @@ class ArgParse:
 
 
 class Trainer:
-    """base class for network training, its instance variables and functions requires implemented while used. """
-    def __init__(self, train_dataset, val_dataset, model, args=ArgParse):
+    """Base class for network training,
+       its instance variables and functions require implemented while used.
+    """
+    def __init__(self, train_dataset, val_dataset, model, args=ArgParse()):
+        self.__cell = ['net', 'optimizer', 'value', 'epoch']
         self.args = args()
-        if not os.path.exists(self.args.chkpt_dir):
-            os.mkdir(self.args.chkpt_dir)
 
         is_cuda = torch.cuda.is_available()
         self.train_loader = DataLoader(train_dataset, self.args.batch_size, shuffle=True, num_workers=self.args.ncpu, pin_memory=is_cuda)
@@ -42,20 +43,43 @@ class Trainer:
         self.value = NotImplemented
         self.epoch = 0
 
+    def _setcell(self, cells):
+        """Set trainer cells for checkout. """
+        self.__cell.extend(cells)
+
+    def state_dict(self):
+        """Return dictionary of states for instance varibales listed in self.__cell. """
+        return {k: self._get_state(v) for k, v in self.__dict__.items() if k in self.__cell}
+
+    @staticmethod
+    def _get_state(obj):
+        return obj.state_dict() if isinstance(obj, (torch.nn.Module, torch.optim.Optimizer)) else obj
+
+    def load_state_dict(self, checkpoint, strict=True):
+        """Resume cells of trainer from checkpoint. """
+        for k, v in checkpoint.items():
+            if k not in self.__dict__: continue
+
+            if isinstance(self.__dict__[k], torch.nn.Module):
+                self.__dict__[k].load_state_dict(v, strict)
+            elif isinstance(self.__dict__[k], torch.optim.Optimizer):
+                self.__dict__[k].load_state_dict(v)
+            else:
+                self.__dict__[k] = v
+
     def main(self):
+        """Main cycle of training and validation. """
         if self.args.resume:
             if os.path.isfile(self.args.resume):
                 print("loading checkpoint '{}' ...".format(self.args.resume))
                 checkpoint = torch.load(self.args.resume)
-                self.net.load_state_dict(checkpoint['state_dict'])
-                self.optimizer.load_state_dict(checkpoint['optimizer'])
-                self.epoch = checkpoint['epoch']
-                self.value = checkpoint['rate']
+                self.load_state_dict(checkpoint)
         elif self.args.transfer:
             if os.path.isfile(self.args.transfer):
                 print("transfer learning from weights '{}' ...".format(self.args.transfer))
-                weights = torch.load(self.args.transfer)
-                self.transfer(weights)
+                pre_trained = torch.load(self.args.transfer)
+                checkpoint = {'net': self.transfer(pre_trained)}
+                self.load_state_dict(checkpoint, strict=False)
 
         while self.epoch < self.args.epochs:
             self.epoch += 1
@@ -67,20 +91,24 @@ class Trainer:
                 self.value = max(value, self.value)
 
     def transfer(self, weights):
+        """Return weights transferring to aim model. """
         raise NotImplementedError
 
     def train(self):
+        """Self-defined model training. """
         raise NotImplementedError
 
     def validate(self):
+        """Self-defined model validation. """
         raise NotImplementedError
 
     def checkpoint(self, value):
-        state = {'state_dict': self.net.state_dict(),
-                 'optimizer': self.optimizer.state_dict(),
-                 'epoch': self.epoch,
-                 'value': value}
+        """Save checkpoint for the training process. """
+        if not os.path.exists(self.args.chkpt_dir):
+            os.mkdir(self.args.chkpt_dir)
         save_pth = os.path.join(self.args.chkpt_dir, "current.pth.tar")
-        torch.save(state, save_pth)
+
+        torch.save(self.state_dict(), save_pth)
         if value > self.value:
             shutil.copyfile(save_pth, os.path.join(self.args.chkpt_dir, "best.pth.tar"))
+            print("upgrade model successfully!")
