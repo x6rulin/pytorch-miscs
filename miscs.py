@@ -28,7 +28,7 @@ class Trainer:
     """Base class for network training,
        its instance variables and functions require implemented while used.
     """
-    def __init__(self, train_dataset, val_dataset, model, args=ArgParse()):
+    def __init__(self, train_dataset, val_dataset, args=ArgParse()):
         self.__cell = ['net', 'optimizer', 'value', 'epoch']
         self.args = args()
 
@@ -37,8 +37,8 @@ class Trainer:
         self.val_loader = DataLoader(val_dataset, self.args.batch_size, shuffle=False, num_workers=self.args.ncpu, pin_memory=is_cuda)
 
         self.device = torch.device(["cpu", "cuda:0"][is_cuda])
-        self.net = model.to(self.device)
-        self.optimizer = torch.optim.Optimizer(self.net.parameters(), defaults={})
+        self.net = NotImplemented
+        self.optimizer = NotImplemented
         self.criterion = NotImplemented
         self.value = NotImplemented
         self.epoch = 0
@@ -67,7 +67,7 @@ class Trainer:
             else:
                 self.__dict__[k] = v
 
-    def main(self):
+    def __call__(self):
         """Main cycle of training and validation. """
         if self.args.resume:
             if os.path.isfile(self.args.resume):

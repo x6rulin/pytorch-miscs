@@ -1,4 +1,4 @@
-"""Optimizers proposed recently which not integrated to Pytorch. """
+"""Optimizers proposed recently which not integrated into pytorch. """
 from collections import defaultdict
 from itertools import chain
 from torch.optim import Optimizer
