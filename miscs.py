@@ -27,6 +27,9 @@ class ArgParse:
 class Trainer:
     """Base class for network training,
        its instance variables and functions require implemented while used.
+
+       :p for multiple models training, that's suggested packing the models and their
+          optimizers by dictionarys.
     """
     def __init__(self, train_dataset, val_dataset, args=ArgParse()):
         self.__cell = ['net', 'optimizer', 'value', 'epoch']
@@ -51,21 +54,34 @@ class Trainer:
         """Return dictionary of states for instance varibales listed in self.__cell. """
         return {k: self._get_state(self.__dict__[k]) for k in self.__cell}
 
-    @staticmethod
-    def _get_state(obj):
-        return obj.state_dict() if isinstance(obj, (torch.nn.Module, torch.optim.Optimizer)) else obj
-
     def load_state_dict(self, checkpoint, strict=True):
         """Resume cells of trainer from checkpoint. """
-        for k, v in checkpoint.items():
-            if k not in self.__dict__: continue
+        self._load_state(self.__dict__, checkpoint, strict)
 
-            if isinstance(self.__dict__[k], torch.nn.Module):
-                self.__dict__[k].load_state_dict(v, strict)
-            elif isinstance(self.__dict__[k], torch.optim.Optimizer):
-                self.__dict__[k].load_state_dict(v)
+    @staticmethod
+    def _get_state(obj):
+        if isinstance(obj, (torch.nn.Module, torch.optim.Optimizer)):
+            _state = obj.state_dict()
+        elif isinstance(obj, dict):
+            _state = {k: Trainer._get_state(obj[k]) for k in obj.keys()}
+        else:
+            _state = obj
+
+        return _state
+
+    @staticmethod
+    def _load_state(_dict, checkpoint, strict=True):
+        for k, v in checkpoint.items():
+            if k not in _dict: continue
+
+            if isinstance(_dict[k], torch.nn.Module):
+                _dict[k].load_state_dict(v, strict)
+            elif isinstance(_dict[k], torch.optim.Optimizer):
+                _dict[k].load_state_dict(v)
+            elif isinstance(_dict[k], dict):
+                Trainer._load_state(_dict[k], v, strict)
             else:
-                self.__dict__[k] = v
+                _dict[k] = v
 
     def __call__(self):
         """Main cycle of training and validation. """
@@ -91,7 +107,7 @@ class Trainer:
                 self.value = max(value, self.value)
 
     def transfer(self, weights):
-        """Return weights transferring to aim model. """
+        """Return (dict of) weights transferring to aim model(s). """
         raise NotImplementedError
 
     def train(self):
