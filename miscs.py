@@ -17,7 +17,7 @@ class ArgParse:
         self.parser.add_argument("-n", "--ncpu", type=int, default=8, help="number of cpu threads used during batch generation")
         self.parser.add_argument("-l", "--lr", type=float, default=1e-3, help="learning rate for gradient descent")
         self.parser.add_argument("-p", "--print-freq", type=int, default=10, help="print frequency")
-        self.parser.add_argument("-c", "--chkpt-dir", type=str, default="checkpoints/", help="directory saved checkpoints")
+        self.parser.add_argument("-c", "--chkpt-dir", type=str, default="checkpoints/", help="directory saving checkpoints")
         self.parser.add_argument("-i", "--evaluation-interval", type=int, default=1, help="interval between evaluations on validation set")
 
     def __call__(self):
@@ -31,13 +31,14 @@ class Trainer:
        :p for multiple models training, that's suggested packing the models and their
           optimizers by dictionarys.
     """
-    def __init__(self, train_dataset, val_dataset, args=ArgParse()):
+    def __init__(self, train_dataset, val_dataset=None, args=ArgParse()):
         self.__cell = ['net', 'optimizer', 'value', 'epoch']
         self.args = args()
 
         is_cuda = torch.cuda.is_available()
         self.train_loader = DataLoader(train_dataset, self.args.batch_size, shuffle=True, num_workers=self.args.ncpu, pin_memory=is_cuda)
-        self.val_loader = DataLoader(val_dataset, self.args.batch_size, shuffle=False, num_workers=self.args.ncpu, pin_memory=is_cuda)
+        if val_dataset is not None:
+            self.val_loader = DataLoader(val_dataset, self.args.batch_size, shuffle=False, num_workers=self.args.ncpu, pin_memory=is_cuda)
 
         self.device = torch.device(["cpu", "cuda:0"][is_cuda])
         self.net = NotImplemented
