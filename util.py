@@ -87,24 +87,15 @@ class EMA:
                 new_average = (1 - self.decay) * param.data + self.decay * self.shadow[name]
                 self.shadow[name] = new_average.clone()
 
-    def state_dict(self, destination=None, prefix='', keep_vars=False):
+    def state_dict(self):
         """Returns a dictionary containing a whole state of the EMA weights. """
-        self.apply_shadow()
-        destination = self.model.state_dict(destination, prefix, keep_vars)
-        self.restore()
-
-        return destination
+        return self.shadow
 
     def load_state_dict(self, state_dict):
         """Copies parameters and buffers from :attr:`state_dict` into shadow. """
-        for name, param in self.model.named_parameters():
-            if param.requires_grad:
-                self.back_up[name] = param.data
-
-        self.model.load_state_dict(state_dict, strict=True)
-
-        self.register_shadow()
-        self.restore()
+        for name, data in state_dict.items():
+            assert name in self.shadow
+            self.shadow[name] = data
 
     def apply_shadow(self):
         """Loads shadow to model. """
