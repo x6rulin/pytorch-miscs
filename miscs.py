@@ -48,6 +48,9 @@ class Trainer:
         self.value = NotImplemented
         self.epoch = 0
 
+        if not os.path.exists(self.args.chkpt_dir):
+            os.makedirs(self.args.chkpt_dir, 0o775)
+
     def _appendcell(self, cells):
         """Set trainer cells for checkout. """
         self.__cell.extend(cells)
@@ -126,8 +129,6 @@ class Trainer:
 
     def checkpoint(self, value):
         """Save checkpoint for the training process. """
-        if not os.path.exists(self.args.chkpt_dir):
-            os.makedirs(self.args.chkpt_dir, 0o775)
         save_pth = os.path.join(self.args.chkpt_dir, "current.pth.tar")
 
         torch.save(self.state_dict(), save_pth)
