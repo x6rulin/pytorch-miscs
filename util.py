@@ -77,7 +77,7 @@ class EMA:
         """Registers model's parameters into shadow. """
         for name, param in self.model.named_parameters():
             if param.requires_grad:
-                self.shadow[name] = param.data.clone
+                self.shadow[name] = param.data.clone()
 
     def update(self):
         """Update shadow from model's parameters. """
