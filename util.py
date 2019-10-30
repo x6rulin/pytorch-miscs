@@ -61,3 +61,44 @@ class Logger:
 
         if self.file is not None:
             self.file.close()
+
+
+class EMA:
+    """Weighted Moving Average. """
+    def __init__(self, model, decay=0.999):
+        self.model = model
+        self.decay = decay
+        self.shadow = {}
+        self.back_up = {}
+
+        self.register_shadow()
+
+    def register_shadow(self):
+        """Registers model's parameters to shadow. """
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                self.shadow[name] = param.data.clone
+
+    def update(self):
+        """Update shadow from model's parameters. """
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                assert name in self.shadow
+                new_average = (1 - self.decay) * param.data + self.decay * self.shadow[name]
+                self.shadow[name] = new_average.clone()
+
+    def apply_shadow(self):
+        """Loads shadow to model. """
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                assert name in self.shadow
+                self.back_up[name] = param.data
+                param.data = self.shadow[name]
+
+    def restore(self):
+        """Restores model's parameters. """
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                assert name in self.back_up
+                param.data = self.back_up[name]
+        self.back_up = {}
