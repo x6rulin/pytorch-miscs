@@ -74,7 +74,7 @@ class EMA:
         self.register_shadow()
 
     def register_shadow(self):
-        """Registers model's parameters to shadow. """
+        """Registers model's parameters into shadow. """
         for name, param in self.model.named_parameters():
             if param.requires_grad:
                 self.shadow[name] = param.data.clone
@@ -86,6 +86,25 @@ class EMA:
                 assert name in self.shadow
                 new_average = (1 - self.decay) * param.data + self.decay * self.shadow[name]
                 self.shadow[name] = new_average.clone()
+
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        """Returns a dictionary containing a whole state of the EMA weights. """
+        self.apply_shadow()
+        destination = self.model.state_dict(destination, prefix, keep_vars)
+        self.restore()
+
+        return destination
+
+    def load_state_dict(self, state_dict):
+        """Copies parameters and buffers from :attr:`state_dict` into shadow. """
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                self.back_up[name] = param.data
+
+        self.model.load_state_dict(state_dict, strict=True)
+
+        self.register_shadow()
+        self.restore()
 
     def apply_shadow(self):
         """Loads shadow to model. """
