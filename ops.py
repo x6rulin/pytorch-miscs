@@ -31,4 +31,4 @@ def parameterized_truncated_normal(uniform, mu, sigma, a, b):
     x = mu + sigma * np.sqrt(2) * torch.erfinv(torch.from_numpy(v))
     x = torch.clamp(x, a, b)
 
-    return x
+    return x.type(torch.get_default_dtype())
